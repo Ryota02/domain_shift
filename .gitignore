@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv/
+venv/
+conda/
+
+# Data
+data/
+datasets/
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.tif
+*.tiff
+*.webp
+*.dcm
+
+# Outputs
+outputs/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+
+Thumbs.db
