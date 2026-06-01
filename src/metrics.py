@@ -15,8 +15,8 @@ def compute_binary_metrics(y_true, y_pred, y_proba, class_to_idx, positive_class
 
     neg_candidates = [idx for cls, idx in class_to_idx.items() if idx != pos_label]
     assert len(neg_candidates) == 1, f"Binary classification expected, got {class_to_idx}"
+    
     neg_label = neg_candidates[0]
-
     y_score = y_proba[:, pos_label]
 
     metrics = {
@@ -37,8 +37,8 @@ def print_metrics(metrics):
     print("Confusion Matrix:")
     print(metrics["confusion_matrix"])
     print(f"Accuracy: {metrics['accuracy']:.4f}")
-    print(f"感度: {metrics['sensitivity']:.4f}")
-    print(f"特異度: {metrics['specificity']:.4f}")
+    print(f"Sensitivity: {metrics['sensitivity']:.4f}")
+    print(f"Specificity: {metrics['specificity']:.4f}")
     print(f"PPV: {metrics['ppv']:.4f}")
     print(f"NPV: {metrics['npv']:.4f}")
     print(f"F-Score: {metrics['f1']:.4f}")

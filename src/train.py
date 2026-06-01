@@ -22,6 +22,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, epochs):
         optimizer.step()
 
         preds = logits.argmax(dim=1)
+
         total_loss += loss.item() * labels.size(0)
         correct += (preds == labels).sum().item()
         total += labels.size(0)
@@ -49,8 +50,8 @@ def validate_one_epoch(model, loader, criterion, device, epoch, epochs):
 
             preds = logits.argmax(dim=1)
 
-            correct += (preds == labels).sum().item()
             total_loss += loss.item() * labels.size(0)
+            correct += (preds == labels).sum().item()
             total += labels.size(0)
 
     return {
@@ -66,6 +67,9 @@ def fit_source_only(model, train_loader, val_loader, criterion, optimizer, devic
         "train_accuracy": [],
         "val_accuracy": [],
     }
+
+    best_val_acc = 0.0
+    best_state_dict = None
 
     for epoch in range(epochs):
         train_result = train_one_epoch(
@@ -92,6 +96,13 @@ def fit_source_only(model, train_loader, val_loader, criterion, optimizer, devic
         history["val_loss"].append(val_result["loss"])
         history["val_accuracy"].append(val_result["accuracy"])
 
+        if val_result["accuracy"] > best_val_acc:
+            best_val_acc = val_result["accuracy"]
+            best_state_dict = {
+                k: v.cpu().clone()
+                for k, v in model.state_dict().items()
+            }
+
         print(
             f"Epoch [{epoch+1}/{epochs}] "
             f"Train Loss: {train_result['loss']:.4f}, "
@@ -100,4 +111,7 @@ def fit_source_only(model, train_loader, val_loader, criterion, optimizer, devic
             f"Val Acc: {val_result['accuracy']:.4f}"
         )
 
-    return history
+    if best_state_dict is not None:
+        model.load_state_dict(best_state_dict)
+
+    return history, best_val_acc

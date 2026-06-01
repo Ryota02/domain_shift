@@ -11,7 +11,7 @@ def set_seed(seed: int = 42):
 
 def get_device(require_cuda: bool = True):
     if require_cuda:
-        assert not torch.cuda.is_available(), "CUDA is not available."
+        assert torch.cuda.is_available(), "CUDA is not available."
         return torch.device("cuda")
 
     return torch.device("cuda")
