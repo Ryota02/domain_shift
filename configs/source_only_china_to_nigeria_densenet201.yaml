@@ -1,4 +1,4 @@
-experiment_name: china_to_nigeria
+experiment_name: china_to_nigeria_densenet201
 setting: source_only
 
 workdir: /media/share/Member/ueki/datasets
@@ -18,16 +18,27 @@ classes:
 positive_class: PNEUMONIA
 
 train:
-  batch_size: 128
+  batch_size: 32
   epochs: 100
-  lr: 0.0001
+  lr: 0.001
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
   num_workers: 0
   img_size: 224
-  beta1: 0.9
-  beta2: 0.999
+
+scheduler:
+  name: reduce_on_plateau
+  factor: 0.1
+  patience: 3
+
+early_stopping:
+  enabled: false
+  patience: 10
 
 model:
-  name: resnet18
+  name: densenet201
   pretrained: true
+  freeze_features: true
 
-output_dir: outputs/china_to_nigeria
+output_dir: outputs/china_to_nigeria_densenet201

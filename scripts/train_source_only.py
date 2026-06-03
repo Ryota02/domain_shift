@@ -29,6 +29,59 @@ def parse_args():
         help="Path to config yaml file."
     )
     return parser.parse_args()
+    
+
+def build_optimizer(cfg, model):
+    optimizer_name = cfg["train"]["optimizer"]
+    lr = cfg["train"]["lr"]
+    weight_decay = cfg["train"]["weight_decay"]
+
+    trainable_params = [p for p in model.parameters() if p.requires_grad]
+
+    if optimizer_name == "sgd":
+        momentum = cfg["train"]["momentum"]
+        optimizer = torch.optim.SGD(
+            trainable_params,
+            lr=lr,
+            momentum=momentum,
+            weight_decay=weight_decay,
+        )
+
+    elif optimizer_name == "adam":
+        optimizer = torch.optim.Adam(
+            trainable_params,
+            lr=lr,
+            weight_decay=weight_decay,
+        )
+
+    else:
+        raise ValueError(f"Unsupported optimizer: {optimizer_name}")
+
+    return optimizer
+
+
+def build_scheduler(cfg, optimizer):
+    scheduler_cfg = cfg["scheduler"]
+
+    if scheduler_cfg is None:
+        return None
+
+    scheduler_name = scheduler_cfg["name"]
+
+    if scheduler_name == "none":
+        return None
+
+    if scheduler_name == "reduce_on_plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=scheduler_cfg["factor"],
+            patience=scheduler_cfg["patience"]
+        )
+        return scheduler
+
+    raise ValueError(f"Unsupported scheduler: {scheduler_name}")
+    
 
 def main():
     args = parse_args()
@@ -62,15 +115,18 @@ def main():
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=cfg["train"]["lr"],
-        betas=(cfg["train"]["beta1"], cfg["train"]["beta2"])
-    )
+    optimizer = build_optimizer(cfg, model)
+    scheduler = build_scheduler(cfg, optimizer)
+
+    early_cfg = cfg["early_stopping"]
+    if early_cfg["enabled"]:
+        early_stopping_patience = early_cfg["patience"]
+    else:
+        early_stopping_patience = None
 
     start_time = time.time()
 
-    history = fit_source_only(
+    history, best_val_acc, best_val_loss = fit_source_only(
         model=model,
         train_loader=loaders["source_train"],
         val_loader=loaders["source_val"],
@@ -78,6 +134,8 @@ def main():
         optimizer=optimizer,
         device=device,
         epochs=cfg["train"]["epochs"],
+        scheduler=scheduler,
+        early_stopping_patience=early_stopping_patience,
     )
 
     end_time = time.time()
@@ -113,6 +171,7 @@ def main():
         y_pred=test_result["y_pred"],
         class_names=datasets_dict["target_classes"],
     )
+    print(f"Execution Time: {end_time-start_time}")
 
     result_log = {
         "experiment_name": cfg["experiment_name"],
@@ -121,7 +180,14 @@ def main():
         "target": cfg["target"],
         "classes": cfg["classes"],
         "positive_class": cfg["positive_class"],
+        "model": cfg["model"],
+        "train_config": cfg["train"],
+        "scheduler": cfg.get("scheduler", None),
+        "early_stopping": cfg.get("early_stopping", None),
         "best_val_accuracy": float(best_val_acc),
+        "best_val_loss": float(best_val_loss),
+        "final_val_accuracy": float(history["val_accuracy"][-1]),
+        "final_val_loss": float(history["val_loss"][-1]),
         "test_loss": float(test_result["loss"]),
         "test_accuracy": float(test_result["accuracy"]),
         "accuracy": float(metrics["accuracy"]),
@@ -134,6 +200,7 @@ def main():
         "training_time": float(end_time - start_time),
         "confusion_matrix": metrics["confusion_matrix"].tolist(),
         "class_to_idx": datasets_dict["target_class_to_idx"],
+        "history": history,
     }
 
     with open(result_dir / "metrics.json", "w") as f:

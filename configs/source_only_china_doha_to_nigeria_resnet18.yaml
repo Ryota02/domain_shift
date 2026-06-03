@@ -1,4 +1,4 @@
-experiment_name: china_doha_to_nigeria
+experiment_name: china_doha_to_nigeria_resnet18
 setting: source_only
 
 workdir: /media/share/Member/ueki/datasets
@@ -21,7 +21,7 @@ positive_class: PNEUMONIA
 
 train:
   batch_size: 128
-  epochs: 100
+  epochs: 30
   lr: 0.0001
   num_workers: 0
   img_size: 224
