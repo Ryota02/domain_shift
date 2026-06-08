@@ -1,0 +1,44 @@
+experiment_name: ada_china_doha_to_nigeria_densenet201
+setting: supervised_ada
+
+workdir: /media/share/Member/ueki/datasets
+
+sources:
+  - name: china
+    path: ZhangLabData_binary_dataset
+  - name: doha
+    path: COVID-19_Radiography_binary_dataset_clean
+
+target:
+  name: nigeria
+  path: nigerian_pneumonia_binary_dataset
+
+classes:
+  - NORMAL
+  - PNEUMONIA
+
+positive_class: PNEUMONIA
+
+train:
+  batch_size: 32
+  epochs_source: 50
+  epochs_ada: 50
+  lr_source: 0.001
+  lr_ada: 0.0001
+  optimizer: sgd
+  momentum: 0.9
+  weight_decay: 0.0001
+  num_workers: 0
+  img_size: 224
+
+ada:
+  lambda_target_cls: 1.0
+  beta_domain: 0.1
+  grl_lambda: 1.0
+
+model:
+  name: densenet201
+  pretrained: true
+  feature_dim: 1920
+
+output_dir: outputs/ada_china_doha_to_nigeria_densenet201
