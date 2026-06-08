@@ -20,7 +20,10 @@ def evaluate_model(model, loader, criterion, device):
             images = images.to(device)
             labels = labels.to(device)
 
-            logits = model(images)
+            if hasattr(model, "forward_class"):
+                logits, _ = model.forward_class(images)
+            else:
+                logits = model(images)
             loss = criterion(logits, labels)
 
             probs = torch.softmax(logits, dim=1)
