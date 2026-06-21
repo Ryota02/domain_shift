@@ -39,4 +39,15 @@ model:
   pretrained: true
   feature_dim: 1920
 
-output_dir: outputs/ada_china_nigeria_densenet201
+visualization:
+  enabled: true
+  method: tsne
+  max_samples_per_domain: 500
+  use_split: test
+  color_by:
+    - domain
+    - class
+  checkpoint: checkpoints/best_model.pth
+  output_dirname: feature_visualization
+
+output_dir: outputs/ada_china_to_nigeria_densenet201
