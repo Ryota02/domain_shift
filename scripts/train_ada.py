@@ -17,7 +17,7 @@ from src.ada_model import SupervisedADAModel
 from src.ada_train import fit_source_pretrain, fit_supervised_ada
 from src.evaluate import evaluate_model, evaluate_domain_discriminator
 from src.metrics import compute_binary_metrics, print_metrics, print_classification_report
-from src.plots import plot_confusion_matrix
+from src.plots import plot_confusion_matrix, plot_source_pretrain_history, plot_all_ada_history
 
 
 def parse_args():
@@ -125,6 +125,11 @@ def main():
         epochs=cfg["train"]["epochs_source"],
     )
 
+    plot_source_pretrain_history(
+        history=source_history,
+        save_path=figure_dir / "source_pretrain_loss.png",
+    )
+
     torch.save(
         model.state_dict(),
         checkpoint_dir / "source_pretrained_model.pth"
@@ -156,6 +161,11 @@ def main():
 
     end_time = time.time()
 
+    plot_all_ada_history(
+        history=ada_history,
+        output_dir=figure_dir,
+    )
+
     torch.save(
         model.state_dict(),
         checkpoint_dir / "best_model.pth"
@@ -181,6 +191,7 @@ def main():
     )
 
     print("[TEST] Target Nigeria")
+    print(f"Execusion Time: {end_time-start_time:.4f}")
     print(f"Test Loss: {test_result['loss']:.4f}")
     print(f"Test Accuracy: {test_result['accuracy']:.4f}")
 
@@ -242,8 +253,8 @@ def main():
         json.dump(result_log, f, indent=2)
 
     plot_confusion_matrix(
-        y_true,
-        y_pred,
+        y_true=test_result["y_true"],
+        y_pred=test_result["y_pred"],
         class_labels=datasets_dict["target_classes"],
         save_path=figure_dir / "confusion_matrix.png",
     )

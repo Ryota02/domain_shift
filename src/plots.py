@@ -31,7 +31,7 @@ def _get_epochs_from_history(history, key):
 def plot_confusion_matrix(
     y_true,
     y_pred,
-    class_names,
+    class_labels,
     save_path,
     normalize=False,
 ):
@@ -56,9 +56,9 @@ def plot_confusion_matrix(
     plt.title(title)
     plt.colorbar()
 
-    tick_marks = np.arange(len(class_names))
-    plt.xticks(tick_marks, class_names, rotation=45)
-    plt.yticks(tick_marks, class_names)
+    tick_marks = np.arange(len(class_labels))
+    plt.xticks(tick_marks, class_labels, rotation=45)
+    plt.yticks(tick_marks, class_labels)
 
     thresh = cm.max() / 2.0
 
