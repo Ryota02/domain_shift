@@ -3,6 +3,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 
 def _ensure_parent_dir(save_path):
@@ -52,29 +53,19 @@ def plot_confusion_matrix(
         title = "Confusion matrix"
 
     plt.figure(figsize=(6, 5))
-    plt.imshow(cm, interpolation="nearest")
-    plt.title(title)
-    plt.colorbar()
 
-    tick_marks = np.arange(len(class_labels))
-    plt.xticks(tick_marks, class_labels, rotation=45)
-    plt.yticks(tick_marks, class_labels)
-
-    thresh = cm.max() / 2.0
-
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            plt.text(
-                j,
-                i,
-                format(cm[i, j], fmt),
-                ha="center",
-                va="center",
-                color="white" if cm[i, j] > thresh else "black",
-            )
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt=fmt,
+        cmap="Blues",
+        xticklabels=class_labels,
+        yticklabels=class_labels,
+    )
 
     plt.ylabel("True label")
     plt.xlabel("Predicted label")
+    plt.title(title)
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.close()
