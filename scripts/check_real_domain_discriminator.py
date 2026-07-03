@@ -288,7 +288,7 @@ def main():
     args = parse_args()
     cfg = load_config(args.config)
 
-    epochs = 20
+    epochs = 60
     lr = 1e-4
 
     set_seed(42)
