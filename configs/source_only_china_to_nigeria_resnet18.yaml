@@ -30,4 +30,15 @@ model:
   name: resnet18
   pretrained: true
 
+visualization:
+  enabled: true
+  method: tsne
+  max_samples_per_domain: 500
+  use_split: test
+  color_by:
+    - domain
+    - class
+  checkpoint: checkpoints/best_model.pth
+  output_dirname: feature_visualization
+
 output_dir: outputs/china_to_nigeria

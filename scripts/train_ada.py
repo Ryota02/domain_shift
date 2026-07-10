@@ -15,9 +15,9 @@ from src.utils import set_seed, get_device
 from src.data import build_datasets, build_loaders
 from src.ada_model import SupervisedADAModel
 from src.ada_train import fit_source_pretrain, fit_supervised_ada
-from src.evaluate import evaluate_model
+from src.evaluate import evaluate_model, evaluate_domain_discriminator
 from src.metrics import compute_binary_metrics, print_metrics, print_classification_report
-from src.plots import plot_confusion_matrix
+from src.plots import plot_confusion_matrix, plot_source_pretrain_history, plot_all_ada_history
 
 
 def parse_args():
@@ -125,6 +125,11 @@ def main():
         epochs=cfg["train"]["epochs_source"],
     )
 
+    plot_source_pretrain_history(
+        history=source_history,
+        save_path=figure_dir / "source_pretrain_loss.png",
+    )
+
     torch.save(
         model.state_dict(),
         checkpoint_dir / "source_pretrained_model.pth"
@@ -156,9 +161,14 @@ def main():
 
     end_time = time.time()
 
+    plot_all_ada_history(
+        history=ada_history,
+        output_dir=figure_dir,
+    )
+
     torch.save(
         model.state_dict(),
-        checkpoint_dir / "ada_model.pth"
+        checkpoint_dir / "best_model.pth"
     )
 
     # =========================
@@ -181,6 +191,7 @@ def main():
     )
 
     print("[TEST] Target Nigeria")
+    print(f"Execusion Time: {end_time-start_time:.4f}")
     print(f"Test Loss: {test_result['loss']:.4f}")
     print(f"Test Accuracy: {test_result['accuracy']:.4f}")
 
@@ -192,6 +203,18 @@ def main():
         y_pred=test_result["y_pred"],
         class_names=datasets_dict["target_classes"],
     )
+
+    domain_result = evaluate_domain_discriminator(
+        model=model,
+        source_loader=loaders["source_val"],
+        target_loader=loaders["target_test"],
+        device=device,
+    )
+    
+    print("Domain Discriminator Evaluation")
+    print(f"Domain Acc: {domain_result['domain_acc']:.4f}")
+    print(f"Source Domain Acc: {domain_result['source_domain_acc']:.4f}")
+    print(f"Target Domain Acc: {domain_result['target_domain_acc']:.4f}")
 
     result_log = {
         "experiment_name": cfg["experiment_name"],
@@ -209,6 +232,9 @@ def main():
         "ada_best_val_loss": float(ada_best_val_loss),
         "target_test_loss": float(test_result["loss"]),
         "target_test_accuracy": float(test_result["accuracy"]),
+        "domain_acc": float(domain_result["domain_acc"]),
+        "source_domain_acc": float(domain_result["source_domain_acc"]),
+        "target_domain_acc": float(domain_result["target_domain_acc"]),
         "accuracy": float(metrics["accuracy"]),
         "sensitivity": float(metrics["sensitivity"]),
         "specificity": float(metrics["specificity"]),
@@ -227,7 +253,8 @@ def main():
         json.dump(result_log, f, indent=2)
 
     plot_confusion_matrix(
-        cm=metrics["confusion_matrix"],
+        y_true=test_result["y_true"],
+        y_pred=test_result["y_pred"],
         class_labels=datasets_dict["target_classes"],
         save_path=figure_dir / "confusion_matrix.png",
     )

@@ -161,19 +161,17 @@ def train_ada_one_epoch(
     total_domain_loss = 0.0
 
     src_correct = 0
-    tgt_correct = 0
-    domain_correct = 0
-
     src_total = 0
+
+    tgt_correct = 0
     tgt_total = 0
+    
+    domain_correct = 0
     domain_total = 0
 
     target_iter = cycle(target_loader)
 
-    for source_images, source_labels in tqdm(
-        source_loader,
-        desc=f"ADA {epoch+1}/{epochs}"
-    ):
+    for source_images, source_labels in tqdm(source_loader, desc=f"ADA {epoch+1}/{epochs}"):
         target_images, target_labels = next(target_iter)
 
         source_images = source_images.to(device)
@@ -184,12 +182,23 @@ def train_ada_one_epoch(
 
         optimizer.zero_grad()
 
+        # -------------------------
+        # Classification forward
+        # -------------------------
+
         source_logits, source_features = model.forward_class(source_images)
         target_logits, target_features = model.forward_class(target_images)
 
         source_cls_loss = criterion_cls(source_logits, source_labels)
         target_cls_loss = criterion_cls(target_logits, target_labels)
 
+        # -------------------------
+        # Domain forward
+        # -------------------------
+
+        source_domain_logits = model.forward_domain(source_features)
+        target_domain_logits = model.forward_domain(target_features)
+        
         source_domain_labels = torch.zeros(
             source_images.size(0),
             dtype=torch.long,
@@ -202,8 +211,6 @@ def train_ada_one_epoch(
             device=device
         )
 
-        source_domain_logits = model.forward_domain(source_features)
-        target_domain_logits = model.forward_domain(target_features)
 
         domain_logits = torch.cat(
             [source_domain_logits, target_domain_logits],
@@ -217,6 +224,10 @@ def train_ada_one_epoch(
 
         domain_loss = criterion_domain(domain_logits, domain_labels)
 
+        # -------------------------
+        # Total loss
+        # -------------------------
+
         loss = (
             source_cls_loss
             + lambda_target_cls * target_cls_loss
@@ -226,25 +237,36 @@ def train_ada_one_epoch(
         loss.backward()
         optimizer.step()
 
+        batch_size_source = source_images.size(0)
+        batch_size_target = target_images.size(0)
+        batch_size_total = batch_size_source + batch_size_target
+
+        total_loss += loss.item() * batch_size_total
+        total_src_cls_loss += source_cls_loss.item() * batch_size_source
+        total_tgt_cls_loss += target_cls_loss.item() * batch_size_target
+        total_domain_loss += domain_loss.item() * batch_size_total
+
+         # -------------------------
+        # Classification accuracy
+        # -------------------------
         source_preds = source_logits.argmax(dim=1)
         target_preds = target_logits.argmax(dim=1)
-        domain_preds = domain_logits.argmax(dim=1)
-
-        total_loss += loss.item() * source_images.size(0)
-        total_src_cls_loss += source_cls_loss.item() * source_images.size(0)
-        total_tgt_cls_loss += target_cls_loss.item() * target_images.size(0)
-        total_domain_loss += domain_loss.item() * domain_labels.size(0)
 
         src_correct += (source_preds == source_labels).sum().item()
-        tgt_correct += (target_preds == target_labels).sum().item()
-        domain_correct += (domain_preds == domain_labels).sum().item()
-
         src_total += source_labels.size(0)
+        
+        tgt_correct += (target_preds == target_labels).sum().item()
         tgt_total += target_labels.size(0)
+        
+        # -------------------------
+        # Domain accuracy
+        # -------------------------
+        domain_preds = domain_logits.argmax(dim=1)
+        domain_correct += (domain_preds == domain_labels).sum().item()
         domain_total += domain_labels.size(0)
 
     return {
-        "loss": total_loss / src_total,
+        "loss": total_loss / (src_total + tgt_total),
         "source_cls_loss": total_src_cls_loss / src_total,
         "target_cls_loss": total_tgt_cls_loss / tgt_total,
         "domain_loss": total_domain_loss / domain_total,
@@ -323,9 +345,9 @@ def fit_supervised_ada(
         print(
             f"[ADA] Epoch {epoch+1}/{epochs} "
             f"Loss: {train_result['loss']:.4f}, "
-            f"SrcCls: {train_result['source_cls_loss']:.4f}, "
-            f"TgtCls: {train_result['target_cls_loss']:.4f}, "
-            f"Domain: {train_result['domain_loss']:.4f}, "
+            f"SrcClsLoss: {train_result['source_cls_loss']:.4f}, "
+            f"TgtClsLoss: {train_result['target_cls_loss']:.4f}, "
+            f"DomainLoss: {train_result['domain_loss']:.4f}, "
             f"SrcAcc: {train_result['source_accuracy']:.4f}, "
             f"TgtAdaptAcc: {train_result['target_adapt_accuracy']:.4f}, "
             f"DomainAcc: {train_result['domain_accuracy']:.4f}, "
