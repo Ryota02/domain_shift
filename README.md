@@ -1,45 +1,68 @@
-# Domain Shift / Domain Adaptation for Chest X-ray Classification
+# Domain Shift Experiments for Chest X-ray Classification
 
-This repository contains experiments for binary chest X-ray classification under cross-domain shift.
-The main task is **NORMAL vs PNEUMONIA** classification, using multiple CXR datasets collected from different domains.
+Chest X-ray binary classification and domain adaptation experiments for evaluating dataset shift across multiple medical image domains.
 
-## Project Overview
+This repository contains code for:
 
-The purpose of this project is to evaluate how well chest X-ray classifiers generalize across datasets from different domains, and to investigate whether adversarial domain adaptation can reduce cross-domain performance degradation.
+- source-only baseline training
+- adversarial domain adaptation, ADA / DANN-style training
+- domain discriminator analysis
+- CNN-based domain classification with ResNet18, ResNet50, and VGG16
+- t-SNE visualization of learned domain features
+- Yoshiken domain classification experiments
 
-The main experimental settings are:
+## DEMO
 
-1. **Source-only baseline**
-   - Train on source domain data.
-   - Test on target domain data.
+The main workflow is:
 
-2. **Supervised Adversarial Domain Adaptation (ADA)**
-   - Train using source data and a small labeled target adaptation set.
-   - Use a Domain Discriminator with Gradient Reversal Layer (GRL).
+```text
+source datasets
+  China / Doha / KM / NIHCC
 
-3. **Domain Discriminator analysis**
-   - Check whether feature representations still contain domain-specific information.
-   - Train only the Domain Discriminator while freezing the Feature Extractor.
+ target datasets
+  Nigeria / NIOSH
 
-4. **Synthetic domain shift experiment**
-   - Apply artificial image transformations to the same images.
-   - Check whether the Domain Discriminator reacts to visual style shifts.
+        images
+          |
+          v
+  CNN / DenseNet201 / ResNet
+          |
+          +--> disease classifier
+          |
+          +--> domain discriminator / domain classifier
+```
 
-5. **CNN-based domain classification**
-   - Train CNN models such as ResNet18 and VGG16 to classify the dataset origin directly from images.
-   - Visualize learned features using t-SNE.
+Example output files are saved under `outputs/`, such as:
 
----
+```text
+outputs/
+├── cnn_domain_classifier/
+├── yoshiken_domain_classifier/
+├── ada_china_doha_to_nigeria_densenet201/
+└── figures/
+```
 
-## Datasets
+## Features
 
-The project assumes the following dataset directory structure:
+- Train source-only baseline models for `NORMAL` vs `PNEUMONIA` classification.
+- Train ADA models using a feature extractor, disease classifier, gradient reversal layer, and domain discriminator.
+- Evaluate target-domain performance using Accuracy, Recall, Specificity, Precision, NPV, F1, and ROC-AUC.
+- Check whether learned features still contain domain information.
+- Train CNN domain classifiers using ResNet18, ResNet50, and VGG16.
+- Visualize learned feature spaces with t-SNE.
+- Support Yoshiken Data domain analysis for `KM`, `NIHCC`, and `NIOSH`.
+
+## Dataset Structure
+
+### Main Domain Adaptation Data
+
+Expected dataset root:
 
 ```text
 /media/share/Member/ueki/datasets/
 ├── ZhangLabData_binary_dataset/
 │   ├── train/
-│   │   ├── NORMAL/ 
+│   │   ├── NORMAL/
 │   │   └── PNEUMONIA/
 │   └── test/
 │       ├── NORMAL/
@@ -62,343 +85,121 @@ The project assumes the following dataset directory structure:
         └── PNEUMONIA/
 ```
 
-### Domain names used in scripts
+### Yoshiken Data
 
-| Domain name | Dataset directory |
-|---|---|
-| `china` | `ZhangLabData_binary_dataset` |
-| `doha` | `COVID-19_Radiography_binary_dataset_clean` |
-| `nigeria` | `nigerian_pneumonia_binary_dataset` |
-
-### Classification task
+Expected dataset root:
 
 ```text
-NORMAL     → class 0
-PNEUMONIA  → class 1
+/media/share/Member/ueki/datasets/
+├── KM_dicom_dataset/
+├── nih/
+└── NIOSH_practice/
+    └── 画像/
 ```
 
-For domain classification experiments, the labels are not disease labels. They are domain labels such as:
+For Yoshiken domain classification, the images do not need to be split into `train`, `validation`, and `test` directories beforehand. The script internally splits each domain into:
 
 ```text
-china   → domain label 0
-doha    → domain label 1
-nigeria → domain label 2
+train : 70%
+val   : 15%
+test  : 15%
 ```
 
-The exact domain label mapping depends on the order passed to `--domains`.
+## Requirement
 
----
-
-## Repository Structure
+Tested environment:
 
 ```text
-domain_shift/
-├── configs/
-│   ├── source_only_china_to_nigeria_densenet201.yaml
-│   ├── source_only_china_doha_to_nigeria_densenet201.yaml
-│   ├── ada_china_to_nigeria_densenet201.yaml
-│   └── ada_china_doha_to_nigeria_densenet201.yaml
-│
-├── scripts/
-│   ├── train_source_only.py
-│   ├── train_ada.py
-│   ├── check_real_domain_discriminator.py
-│   ├── check_pairwise_domain_discriminator.py
-│   ├── check_domain_discriminator_synthetic.py
-│   ├── train_cnn_domain_classifier.py
-│   └── visualize_cnn_domain_tsne.py
-│
-├── src/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── data.py
-│   ├── model.py
-│   ├── train.py
-│   ├── evaluate.py
-│   ├── metrics.py
-│   ├── plots.py
-│   ├── utils.py
-│   ├── ada_model.py
-│   ├── ada_train.py
-│   ├── domain_data.py
-│   ├── domain_models.py
-│   ├── domain_train.py
-│   ├── domain_evaluate.py
-│   └── domain_visualize.py
-│
-├── outputs/
-├── docs/
-│   └── experiment_log.md
-├── README.md
-└── requirements.txt
-```
-
----
-
-## Environment
-
-Recommended environment:
-
-```text
-Python >= 3.10
+Python 3.x
 PyTorch
-Torchvision
+TorchVision
 scikit-learn
-matplotlib
-seaborn
+NumPy
+Pandas
+Matplotlib
+Pillow
 PyYAML
-numpy
 ```
 
-Example installation:
+GPU is recommended.
+
+Known working GPU environment:
+
+```text
+GPU: Tesla V100-SXM2-32GB
+CUDA: 11.8 compatible PyTorch environment
+PyTorch: 2.7.1+cu118
+```
+
+## Installation
+
+Create and activate your Python environment, then install the required packages.
 
 ```bash
-pip install torch torchvision scikit-learn matplotlib seaborn pyyaml numpy
+pip install torch torchvision torchaudio
+pip install scikit-learn numpy pandas matplotlib pillow pyyaml
 ```
 
-If using a V100 GPU, make sure the installed PyTorch CUDA version is compatible with the GPU.
-For example, PyTorch with CUDA 11.8 is safer than newer CUDA builds that may not support V100 properly.
+If you use a CUDA environment, install the PyTorch build matching your CUDA version.
 
----
+## Usage
 
-## 1. Source-only Baseline
+### 1. Train Source-only Baseline
 
-### China → Nigeria
+Example:
 
 ```bash
 python scripts/train_source_only.py \
   --config configs/source_only_china_to_nigeria_densenet201.yaml
 ```
 
-### China + Doha → Nigeria
+For China + Doha to Nigeria:
 
 ```bash
 python scripts/train_source_only.py \
   --config configs/source_only_china_doha_to_nigeria_densenet201.yaml
 ```
 
-The source-only setting trains only on source data and evaluates on the Nigeria target test set.
+### 2. Train ADA Model
 
----
-
-## 2. Supervised ADA Training
-
-### China → Nigeria
-
-```bash
-python scripts/train_ada.py \
-  --config configs/ada_china_to_nigeria_densenet201.yaml
-```
-
-### China + Doha → Nigeria
+Example:
 
 ```bash
 python scripts/train_ada.py \
   --config configs/ada_china_doha_to_nigeria_densenet201.yaml
 ```
 
-ADA uses:
+If using a CNN-type domain discriminator:
+
+```bash
+python scripts/train_ada.py \
+  --config configs/ada_china_doha_to_nigeria_densenet201_convdisc.yaml
+```
+
+The ADA model is based on:
 
 ```text
 Feature Extractor
-Classifier
+Disease Classifier
 Gradient Reversal Layer
 Domain Discriminator
 ```
 
-The training loss is composed of:
+For two-domain ADA, ideal domain discriminator behavior after adaptation is:
 
 ```text
-Source classification loss
-Target classification loss
-Domain adversarial loss
+Overall Domain Accuracy ≈ 0.5
+Source Domain Accuracy  ≈ 0.5
+Target Domain Accuracy  ≈ 0.5
 ```
 
----
+If the overall domain accuracy is close to 0.5 but source and target accuracies are extremely imbalanced, domain alignment should not be considered successful.
 
-## 3. Domain Discriminator Evaluation After ADA
+### 3. CNN Domain Classifier
 
-After ADA training, the script evaluates how well the Domain Discriminator can distinguish source and target features.
+This experiment checks whether the dataset origin can be predicted directly from images.
 
-Example output:
-
-```text
-Domain Acc
-Source Domain Acc
-Target Domain Acc
-```
-
-Interpretation:
-
-
-| Metric | Meaning |
-|---|---|
-| Domain Acc | Overall source/target domain classification accuracy |
-| Source Domain Acc | Accuracy for classifying source images as source |
-| Target Domain Acc | Accuracy for classifying target images as target |
-
-In ADA, a Domain Accuracy close to 0.5 can indicate domain-invariant features. However, it must be interpreted together with Source Domain Acc and Target Domain Acc. A value close to 0.5 is not always good if predictions are biased toward one domain.
-
----
-
-## 4. Real Domain Discriminator Probe
-
-This experiment checks whether fixed features still contain real domain information.
-
-The Feature Extractor is frozen. A new Domain Discriminator is trained to classify:
-
-```text
-Source = China / Doha
-Target = Nigeria
-```
-
-### ADA-before features
-
-```bash
-python scripts/check_real_domain_discriminator.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/source_pretrained_model.pth \
-  --epochs 20 \
-  --lr 1e-4 \
-  --output_name real_domain_before_ada.json
-```
-
-### ADA-after features
-
-```bash
-python scripts/check_real_domain_discriminator.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/best_model.pth \
-  --epochs 20 \
-  --lr 1e-4 \
-  --output_name real_domain_after_ada.json
-```
-
-This is not ADA training. It is a probe experiment.
-
-```text
-Feature Extractor: frozen
-Classifier: frozen
-Domain Discriminator: newly initialized and trained
-GRL: not used
-```
-
-If Domain Acc remains high after ADA, then domain-specific information is still present in the learned features.
-
----
-
-## 5. Pairwise Domain Discriminator Probe
-
-This experiment trains only the Domain Discriminator on fixed features to classify pairs or groups of domains.
-
-Supported settings:
-
-```text
-Doha vs Nigeria
-Doha vs China
-China vs Nigeria
-China vs Doha vs Nigeria
-```
-
-### Doha vs Nigeria
-
-```bash
-python scripts/check_pairwise_domain_discriminator.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/best_model.pth \
-  --domains doha nigeria \
-  --epochs 20 \
-  --output_name domain_probe_after_doha_vs_nigeria.json
-```
-
-### Doha vs China
-
-```bash
-python scripts/check_pairwise_domain_discriminator.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/best_model.pth \
-  --domains doha china \
-  --epochs 20 \
-  --output_name domain_probe_after_doha_vs_china.json
-```
-
-### China vs Nigeria
-
-```bash
-python scripts/check_pairwise_domain_discriminator.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/best_model.pth \
-  --domains china nigeria \
-  --epochs 20 \
-  --output_name domain_probe_after_china_vs_nigeria.json
-```
-
-### China vs Doha vs Nigeria
-
-```bash
-python scripts/check_pairwise_domain_discriminator.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/best_model.pth \
-  --domains china doha nigeria \
-  --epochs 20 \
-  --output_name domain_probe_after_china_doha_nigeria.json
-```
-
-This experiment helps identify which dataset pairs have the strongest domain gap.
-
----
-
-## 6. Synthetic Domain Shift Experiment
-
-This experiment checks whether the Domain Discriminator responds to artificial image style shifts.
-
-The same image is used twice:
-
-```text
-original image → domain label 0
-shifted image  → domain label 1
-```
-
-The shifted image may include:
-
-```text
-Brightness change
-Contrast change
-Gaussian blur
-Gaussian noise
-```
-
-Example execution:
-
-```bash
-python scripts/check_domain_discriminator_synthetic.py \
-  --config configs/ada_china_doha_to_nigeria_densenet201.yaml \
-  --checkpoint outputs/ada_china_doha_to_nigeria_densenet201/checkpoints/best_model.pth
-```
-
-This experiment is a behavior check for the Domain Discriminator. It does not directly measure real China/Doha/Nigeria domain shift.
-
----
-
-## 7. CNN Domain Classifier
-
-This experiment trains a CNN to classify the dataset origin directly from images.
-
-Input:
-
-```text
-Chest X-ray image
-```
-
-Output:
-
-```text
-Domain label: china / doha / nigeria
-```
-
-Disease labels are not used for training.
-
-### ResNet18, three-domain classification
+#### ResNet18
 
 ```bash
 python scripts/train_cnn_domain_classifier.py \
@@ -411,7 +212,20 @@ python scripts/train_cnn_domain_classifier.py \
   --output_dir outputs/cnn_domain_classifier/resnet18_china_doha_nigeria
 ```
 
-### VGG16, three-domain classification
+#### ResNet50
+
+```bash
+python scripts/train_cnn_domain_classifier.py \
+  --domains china doha nigeria \
+  --model resnet50 \
+  --epochs 20 \
+  --batch_size 32 \
+  --lr 1e-4 \
+  --val_ratio 0.2 \
+  --output_dir outputs/cnn_domain_classifier/resnet50_china_doha_nigeria
+```
+
+#### VGG16
 
 ```bash
 python scripts/train_cnn_domain_classifier.py \
@@ -424,22 +238,9 @@ python scripts/train_cnn_domain_classifier.py \
   --output_dir outputs/cnn_domain_classifier/vgg16_china_doha_nigeria
 ```
 
-The training data is created by splitting each domain's `train` folder into train and validation sets.
-The `test` folder is used only for final evaluation.
+### 4. t-SNE for CNN Domain Classifier
 
-```text
-train: 80% of each domain's train folder
-val:   20% of each domain's train folder
-test:  each domain's test folder
-```
-
----
-
-## 8. t-SNE Visualization for CNN Domain Classifier
-
-After training a CNN domain classifier, use t-SNE to visualize the learned feature space.
-
-### ResNet18 t-SNE
+Example:
 
 ```bash
 python scripts/visualize_cnn_domain_tsne.py \
@@ -450,83 +251,140 @@ python scripts/visualize_cnn_domain_tsne.py \
   --output_dir outputs/cnn_domain_classifier/resnet18_china_doha_nigeria/tsne
 ```
 
-Output:
+### 5. Yoshiken Domain Classifier
+
+The Yoshiken Data domains are:
 
 ```text
-tsne_by_domain.png
-tsne_by_disease.png
-features.npy
-domain_labels.npy
-disease_labels.npy
-tsne_features.npy
+km
+nihcc
+niosh
 ```
 
-Interpretation:
+The current known data summary is:
 
-- `tsne_by_domain.png` shows whether the model separates China, Doha, and Nigeria.
-- `tsne_by_disease.png` shows whether the same feature space also separates NORMAL and PNEUMONIA.
+| Dataset | Normal | Pneumonia | Total |
+|---|---:|---:|---:|
+| NIHCC | 90 | 0 | 90 |
+| KM | 4 | 91 | 95 |
+| NIOSH | 23 | 28 | 51 |
+| Total | 117 | 119 | 236 |
 
----
+Since the data are not pre-split into train, validation, and test, the script internally splits each domain.
 
-## Output Files
+#### ResNet18
 
-Typical output directories:
+```bash
+python scripts/train_yoshiken_domain_classifier.py \
+  --workdir /media/share/Member/ueki/datasets \
+  --model resnet18 \
+  --domains km nihcc niosh \
+  --epochs 20 \
+  --batch_size 16 \
+  --lr 1e-4 \
+  --train_ratio 0.7 \
+  --val_ratio 0.15 \
+  --output_dir outputs/yoshiken_domain_classifier/resnet18_3domain
+```
+
+#### ResNet50
+
+```bash
+python scripts/train_yoshiken_domain_classifier.py \
+  --workdir /media/share/Member/ueki/datasets \
+  --model resnet50 \
+  --domains km nihcc niosh \
+  --epochs 20 \
+  --batch_size 16 \
+  --lr 1e-4 \
+  --train_ratio 0.7 \
+  --val_ratio 0.15 \
+  --output_dir outputs/yoshiken_domain_classifier/resnet50_3domain
+```
+
+#### VGG16
+
+```bash
+python scripts/train_yoshiken_domain_classifier.py \
+  --workdir /media/share/Member/ueki/datasets \
+  --model vgg16 \
+  --domains km nihcc niosh \
+  --epochs 20 \
+  --batch_size 16 \
+  --lr 1e-4 \
+  --train_ratio 0.7 \
+  --val_ratio 0.15 \
+  --output_dir outputs/yoshiken_domain_classifier/vgg16_3domain
+```
+
+### 6. Yoshiken t-SNE
+
+#### ResNet18
+
+```bash
+python scripts/visualize_yoshiken_domain_tsne.py \
+  --workdir /media/share/Member/ueki/datasets \
+  --model resnet18 \
+  --domains km nihcc niosh \
+  --checkpoint outputs/yoshiken_domain_classifier/resnet18_3domain/yoshiken_domain_resnet18_km_vs_nihcc_vs_niosh.pth \
+  --split test \
+  --output_dir outputs/yoshiken_domain_classifier/resnet18_3domain/tsne
+```
+
+Use `--split all` if you want to visualize all images, including training images.
+
+## Directory Structure
 
 ```text
-outputs/
-├── ada_china_doha_to_nigeria_densenet201/
-│   ├── checkpoints/
-│   ├── results/
-│   └── figures/
+.
+├── configs/
+│   ├── source_only_china_to_nigeria_densenet201.yaml
+│   ├── source_only_china_doha_to_nigeria_densenet201.yaml
+│   ├── ada_china_doha_to_nigeria_densenet201.yaml
+│   └── ada_china_doha_to_nigeria_densenet201_convdisc.yaml
 │
-└── cnn_domain_classifier/
-    ├── resnet18_china_doha_nigeria/
-    │   ├── cnn_domain_resnet18_china_vs_doha_vs_nigeria.json
-    │   ├── cnn_domain_resnet18_china_vs_doha_vs_nigeria.pth
-    │   └── tsne/
-    │       ├── tsne_by_domain.png
-    │       └── tsne_by_disease.png
+├── scripts/
+│   ├── train_source_only.py
+│   ├── train_ada.py
+│   ├── train_cnn_domain_classifier.py
+│   ├── visualize_cnn_domain_tsne.py
+│   ├── train_yoshiken_domain_classifier.py
+│   └── visualize_yoshiken_domain_tsne.py
+│
+├── src/
+│   ├── config.py
+│   ├── data.py
+│   ├── model.py
+│   ├── train.py
+│   ├── evaluate.py
+│   ├── metrics.py
+│   ├── utils.py
+│   ├── ada_model.py
+│   ├── domain_data.py
+│   ├── domain_models.py
+│   ├── domain_train.py
+│   ├── domain_evaluate.py
+│   ├── domain_visualize.py
+│   └── yoshiken_domain_data.py
+│
+├── outputs/
+└── README.md
 ```
 
----
+## Notes
 
-## Important Notes
+- Domain classifier accuracy can be high because of true acquisition-domain differences, disease-label imbalance, or both.
+- For Yoshiken Data, NIHCC is mostly normal and KM is mostly pneumonia. Therefore, domain classification results may partly reflect disease distribution differences.
+- In ADA, high disease classification performance does not automatically mean successful domain alignment.
+- For two-domain ADA, domain discriminator accuracy should be interpreted together with source-domain accuracy and target-domain accuracy.
+- Test data should not be used for model selection. Use validation data for best epoch selection and test data only for final evaluation.
+- Existing MLP-based ADA checkpoints are not directly compatible with CNN-type domain discriminator checkpoints.
 
-### Domain Accuracy is not disease classification accuracy
+## Author
 
-Domain Accuracy measures whether the model can identify dataset origin.
-It does not measure NORMAL/PNEUMONIA classification performance.
+- Ryota Ueki
+- Project: Chest X-ray domain shift and domain adaptation experiments
 
-### Domain Accuracy near 0.5 is not always good
+## License
 
-For binary domain classification, 0.5 can mean that domains are indistinguishable. However, it can also mean that the classifier is biased or undertrained. Always check:
-
-```text
-Domain Acc
-Source Domain Acc
-Target Domain Acc
-Pred Source Ratio
-Pred Target Ratio
-Confusion Matrix
-```
-
-### CNN domain classification and ADA are different
-
-The CNN domain classifier directly learns to classify dataset origin from images.
-ADA aims to remove domain-specific information while preserving disease classification ability.
-
----
-
-## Recommended Experiment Order
-
-1. Run source-only baseline.
-2. Run supervised ADA.
-3. Evaluate Domain Discriminator behavior.
-4. Run pairwise domain probes.
-5. Run synthetic domain shift experiment.
-6. Train CNN domain classifier.
-7. Visualize CNN domain features with t-SNE.
-8. Compare whether domain information remains before and after ADA.
-
-## Updated Date
-* 2026/7/10 
+This repository is intended for internal research use.
