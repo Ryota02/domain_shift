@@ -1,7 +1,67 @@
+from pathlib import Path
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+from sklearn.metrics import roc_curve, auc
+from sklearn.preprocessing import label_binarize
+
+
+def plot_multiclass_roc_curve(
+    y_true,
+    y_score,
+    class_names,
+    save_path,
+):
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+
+    y_true = np.array(y_true)
+    y_score = np.array(y_score)
+
+    num_classes = len(class_names)
+    classes = list(range(num_classes))
+
+    y_true_bin = label_binarize(y_true, classes=classes)
+
+    plt.figure(figsize=(7, 6))
+
+    auc_dict = {}
+
+    for class_idx, class_name in enumerate(class_names):
+        fpr, tpr, _ = roc_curve(
+            y_true_bin[:, class_idx],
+            y_score[:, class_idx],
+        )
+
+        roc_auc = auc(fpr, tpr)
+        auc_dict[class_name] = float(roc_auc)
+
+        plt.plot(
+            fpr,
+            tpr,
+            linewidth=2,
+            label=f"{class_name} AUC = {roc_auc:.3f}",
+        )
+
+    plt.plot(
+        [0, 1],
+        [0, 1],
+        linestyle="--",
+        linewidth=1,
+        label="Chance",
+    )
+
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Domain classification ROC curve")
+    plt.legend(loc="lower right")
+    plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300)
+    plt.close()
+
+    return auc_dict
 
 
 def extract_resnet_features(model, images):

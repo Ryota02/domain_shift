@@ -1,39 +1,106 @@
+import torch
 import torch.nn as nn
-from torchvision.models import resnet18, ResNet18_Weights, densenet201, DenseNet201_Weights
+from torchvision import models
+
+
+class CXRClassifier(nn.Module):
+    def __init__(
+        self,
+        backbone_name="densenet201",
+        num_classes=2,
+        pretrained=True,
+        freeze_features=False,
+    ):
+        super().__init__()
+
+        self.backbone_name = backbone_name
+
+        if backbone_name == "resnet18":
+            weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
+            backbone = models.resnet18(weights=weights)
+
+            feature_dim = backbone.fc.in_features
+
+            self.feature_extractor = nn.Sequential(
+                backbone.conv1,
+                backbone.bn1,
+                backbone.relu,
+                backbone.maxpool,
+                backbone.layer1,
+                backbone.layer2,
+                backbone.layer3,
+                backbone.layer4,
+                backbone.avgpool,
+                nn.Flatten(),
+            )
+
+        elif backbone_name == "resnet50":
+            weights = models.ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
+            backbone = models.resnet50(weights=weights)
+
+            feature_dim = backbone.fc.in_features
+
+            self.feature_extractor = nn.Sequential(
+                backbone.conv1,
+                backbone.bn1,
+                backbone.relu,
+                backbone.maxpool,
+                backbone.layer1,
+                backbone.layer2,
+                backbone.layer3,
+                backbone.layer4,
+                backbone.avgpool,
+                nn.Flatten(),
+            )
+
+        elif backbone_name == "densenet201":
+            weights = models.DenseNet201_Weights.IMAGENET1K_V1 if pretrained else None
+            backbone = models.densenet201(weights=weights)
+
+            feature_dim = backbone.classifier.in_features
+
+            self.feature_extractor = nn.Sequential(
+                backbone.features,
+                nn.ReLU(inplace=True),
+                nn.AdaptiveAvgPool2d((1, 1)),
+                nn.Flatten(),
+            )
+
+        else:
+            raise ValueError(f"Unsupported backbone: {backbone_name}")
+
+        self.classifier_head = nn.Linear(feature_dim, num_classes)
+
+        if freeze_features:
+            for p in self.feature_extractor.parameters():
+                p.requires_grad = False
+
+    def forward_features(self, x):
+        return self.feature_extractor(x)
+
+    def classify_from_features(self, features):
+        return self.classifier_head(features)
+
+    def forward_class(self, x):
+        features = self.forward_features(x)
+        logits = self.classify_from_features(features)
+        return logits, features
+
+    def forward(self, x, return_features=False):
+        logits, features = self.forward_class(x)
+
+        if return_features:
+            return logits, features
+
+        return logits
 
 
 def build_model(cfg):
-    model_name = cfg["model"]["name"]
-    pretrained = cfg["model"]["pretrained"]
-    num_classes = len(cfg["classes"])
-    freeze_features = cfg["model"]["freeze_features"]
+    model_cfg = cfg["model"]
 
-    if model_name == "resnet18":
-        weights = ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
-        model = resnet18(weights=weights)
-
-        if freeze_features: 
-            for param in model.parameters():
-                param.requires_grad = False
-        
-        in_features = model.fc.in_features
-        model.fc = nn.Linear(in_features, num_classes)
-
-        return model
-
-    elif model_name == "densenet201":
-        weights = DenseNet201_Weights.IMAGENET1K_V1 if pretrained else None
-        model = densenet201(weights=weights)
-
-        if freeze_features: 
-            for param in model.features.parameters():
-                param.requires_grad = False
-
-        in_features = model.classifier.in_features
-        model.classifier = nn.Linear(in_features, num_classes)
-
-        return model
-    else:
-        raise ValueError(f"Unsupported model: {model_name}")
-
-            
+    return CXRClassifier(
+        backbone_name=model_cfg.get("backbone", "densenet201"),
+        num_classes=model_cfg.get("num_classes", 2),
+        pretrained=model_cfg.get("pretrained", True),
+        freeze_features=model_cfg.get("freeze_features", False),
+    )
