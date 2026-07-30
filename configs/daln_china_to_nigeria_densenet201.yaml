@@ -1,5 +1,4 @@
 workdir: /media/share/Member/ueki/datasets
-
 method: daln
 
 task: binary
@@ -19,7 +18,7 @@ classes:
 positive_class: PNEUMONIA
 
 model:
-  backbone: resnet50
+  backbone: densenet201
   num_classes: 2
   pretrained: true
   freeze_features: false
@@ -47,4 +46,4 @@ grl:
   hi: 1.0
   max_iters: 1000
 
-output_dir: outputs/daln/china_to_nigeria_resnet50
+output_dir: outputs/daln/china_to_nigeria_densenet201

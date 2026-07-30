@@ -127,13 +127,36 @@ def extract_cnn_domain_features(
 
 
 def run_tsne(features):
-    tsne = TSNE(
-        n_components=2,
-        perplexity=30,
-        learning_rate="auto",
-        init="pca",
-        random_state=42,
+    def run_tsne(
+    features,
+    perplexity=30.0,
+    max_iter=1000,
+    seed=42,
+):
+    perplexity = min(
+        float(perplexity),
+        len(features) - 1,
     )
+
+    options = {
+        "n_components": 2,
+        "perplexity": perplexity,
+        "learning_rate": "auto",
+        "init": "pca",
+        "random_state": seed,
+    }
+
+    try:
+        tsne = TSNE(
+            max_iter=max_iter,
+            **options,
+        )
+    except TypeError:
+        # 古いscikit-learn向け
+        tsne = TSNE(
+            n_iter=max_iter,
+            **options,
+        )
 
     return tsne.fit_transform(features)
 
@@ -165,3 +188,49 @@ def plot_tsne(
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.close()
+
+def extract_model_features(
+    model,
+    loader,
+    device,
+):
+    """
+    DALN／Source-only分類モデル用の特徴抽出．
+
+    loader:
+        images, class_labels
+
+    model:
+        forward_features()を持つ分類モデル
+    """
+    model.eval()
+
+    all_features = []
+    all_labels = []
+
+    with torch.inference_mode():
+        for images, labels in loader:
+            images = images.to(device,non_blocking=True,)
+
+            features = model.forward_features(images)
+
+            if features.ndim > 2:
+                features = torch.flatten(
+                    features,
+                    start_dim=1,
+                )
+
+            all_features.append(features.cpu().numpy())
+
+            all_labels.append(labels.cpu().numpy())
+
+    return (
+        np.concatenate(
+            all_features,
+            axis=0,
+        ),
+        np.concatenate(
+            all_labels,
+            axis=0,
+        ),
+    )

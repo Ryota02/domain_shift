@@ -3,6 +3,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.preprocessing import label_binarize
 import seaborn as sns
 
 
@@ -38,23 +39,29 @@ def plot_confusion_matrix(
     save_path,
     normalize=False,
 ):
-    """
-    Confusion matrixを保存する。
-    """
-
     save_path = _ensure_parent_dir(save_path)
 
     cm = confusion_matrix(y_true, y_pred)
 
     if normalize:
-        cm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
+        row_sums = cm.sum(axis=1, keepdims=True)
+        cm = np.divide(
+            cm.astype(float),
+            row_sums,
+            out=np.zeros_like(
+                cm,
+                dtype=float,
+            ),
+            where=row_sums != 0,
+        )
         fmt = ".2f"
         title = "Normalized confusion matrix"
     else:
         fmt = "d"
         title = "Confusion matrix"
 
-    plt.figure(figsize=(6, 5))
+    figure_size = max(6, len(class_labels))
+    plt.figure(figsize=(figure_size, figure_size))
 
     sns.heatmap(
         cm,
@@ -68,10 +75,11 @@ def plot_confusion_matrix(
     plt.ylabel("True label")
     plt.xlabel("Predicted label")
     plt.title(title)
+    plt.xticks(rotation=45, ha="right")
+    plt.yticks(rotation=0)
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
     plt.close()
-
 
 def plot_source_pretrain_history(history, save_path):
     """
@@ -623,3 +631,63 @@ def plot_roc_curve(y_true, y_proba, positive_class, class_to_idx, save_path):
     plt.close()
 
     return {"fpr": fpr, "tpr": tpr, "thresholds": thresholds, "auc": roc_auc}
+
+def plot_multiclass_roc_curve(
+    y_true,
+    y_proba,
+    class_names,
+    save_path,
+):
+    save_path = _ensure_parent_dir(save_path)
+    num_classes = len(class_names)
+
+    y_true_binary = label_binarize(y_true,classes=np.arange(num_classes))
+
+    auc_values = {}
+
+    plt.figure(figsize=(11, 8))
+
+    for class_id, class_name in enumerate(class_names):
+        binary_true = y_true_binary[:,class_id]
+
+        if np.unique(binary_true).size < 2:
+            auc_values[class_name] = None
+            continue
+
+        fpr, tpr, _ = roc_curve(binary_true,y_proba[:, class_id])
+        class_auc = auc(fpr, tpr)
+        auc_values[class_name] = float(class_auc)
+
+        plt.plot(
+            fpr,
+            tpr,
+            linewidth=1.5,
+            label=(f"{class_name} (AUC={class_auc:.3f})"
+            ),
+        )
+
+    plt.plot(
+        [0, 1],
+        [0, 1],
+        linestyle="--",
+        linewidth=1,
+    )
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("One-vs-Rest ROC Curves")
+    plt.legend(
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        fontsize=8,
+    )
+    plt.tight_layout()
+    plt.savefig(
+        save_path,
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+    return {
+        "auc_per_class": auc_values,
+    }

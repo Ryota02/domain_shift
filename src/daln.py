@@ -4,7 +4,6 @@ import numpy as np
 import torch.nn as nn
 from torch.autograd import Function
 import torch
-from torchvision import models
 import torch.nn.functional as F
 
 class GradientReverseFunction(Function):
@@ -84,13 +83,20 @@ class NuclearWassersteinDiscrepancy(nn.Module):
         prob_t = F.softmax(logits_t, dim=1)
         nuc_s = torch.linalg.matrix_norm(prob_s, ord="nuc") # nuclear norm source 
         nuc_t = torch.linalg.matrix_norm(prob_t, ord="nuc") # nuclear norm target
-        loss = (-nuc_t + nuc_s) / logits_t.shape[0] 
+        loss = -nuc_t / logits_t.shape[0] + nuc_s / logits_s.shape[0] 
         return loss
 
-    def forward(self, f: torch.Tensor) -> torch.Tensor:
-        feature_grl = self.grl(f)
+    def forward(
+        self, 
+        source_features: torch.Tensor, 
+        target_features: torch.Tensor
+    ) -> torch.Tensor:
+        num_source = source_features.size(0)
+        all_features = torch.cat([source_features, target_features], dim=0)
+        feature_grl = self.grl(all_features)
         logits = self.classifier_head(feature_grl)
-        logits_s, logits_t = logits.chunk(2, dim=0)
+        logits_s = logits[:num_source]
+        logits_t = logits[num_source:]
 
         loss = self.n_discrepancy(logits_s, logits_t)
         return loss

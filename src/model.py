@@ -53,6 +53,42 @@ class CXRClassifier(nn.Module):
                 nn.Flatten(),
             )
 
+        elif backbone_name == "resnet101":
+            weights = (
+                models.ResNet101_Weights.IMAGENET1K_V1
+                if pretrained else None
+            )
+            backbone = models.resnet101(weights=weights)
+            feature_dim = backbone.fc.in_features
+
+            self.feature_extractor = nn.Sequential(
+                backbone.conv1,
+                backbone.bn1,
+                backbone.relu,
+                backbone.maxpool,
+                backbone.layer1,
+                backbone.layer2,
+                backbone.layer3,
+                backbone.layer4,
+                backbone.avgpool,
+                nn.Flatten(),
+            )
+
+        elif backbone_name == "densenet121":
+            weights = (
+                models.DenseNet121_Weights.IMAGENET1K_V1
+                if pretrained else None
+            )
+            backbone = models.densenet121(weights=weights)
+            feature_dim = backbone.classifier.in_features
+
+            self.feature_extractor = nn.Sequential(
+                backbone.features,
+                nn.ReLU(inplace=True),
+                nn.AdaptiveAvgPool2d((1, 1)),
+                nn.Flatten(),
+            )
+
         elif backbone_name == "densenet201":
             weights = models.DenseNet201_Weights.IMAGENET1K_V1 if pretrained else None
             backbone = models.densenet201(weights=weights)
@@ -93,6 +129,28 @@ class CXRClassifier(nn.Module):
             return logits, features
 
         return logits
+
+    def get_parameter_groups(
+        self,
+        feature_lr,
+        classifier_lr,
+    ):
+        return [
+            {
+                "params": (
+                    self.feature_extractor.parameters()
+                ),
+                "lr": feature_lr,
+                "initial_lr": feature_lr,
+            },
+            {
+                "params": (
+                    self.classifier_head.parameters()
+                ),
+                "lr": classifier_lr,
+                "initial_lr": classifier_lr,
+            },
+        ]
 
 
 def build_model(cfg):
