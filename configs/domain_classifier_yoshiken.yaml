@@ -1,0 +1,19 @@
+workdir: /media/share/Member/ueki/datasets
+
+data:
+  data_root: /media/share/Member/ueki/datasets/yoshiken_50_50
+  domains:
+    - km
+    - nihcc
+    - niosh
+  img_size: 224
+  num_workers: 0
+
+train:
+  epochs: 20
+  batch_size: 32
+  lr: 0.0001
+  weight_decay: 0.0001
+  seed: 42
+
+output_dir: outputs/yoshiken_50_50_domain_classifier

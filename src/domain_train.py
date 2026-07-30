@@ -1,10 +1,9 @@
 import copy
-import torch
 
 from src.domain_evaluate import evaluate_domain_classifier
 
 
-def train_domain_classifier_one_epoch(
+def train_domain_one_epoch(
     model,
     loader,
     criterion,
@@ -43,25 +42,28 @@ def train_domain_classifier_one_epoch(
 def fit_domain_classifier(
     model,
     train_loader,
-    val_loader,
+    select_loader,
     criterion,
     optimizer,
     device,
     epochs,
     num_domains,
+    domains,
+    select_name="Val",
 ):
     history = {
         "train_loss": [],
         "train_domain_acc": [],
-        "val_loss": [],
-        "val_domain_acc": [],
+        "select_loss": [],
+        "select_domain_acc": [],
+        "select_macro_domain_acc": [],
     }
 
-    best_val_acc = -1.0
+    best_select_acc = -1.0
     best_state_dict = None
 
     for epoch in range(1, epochs + 1):
-        train_result = train_domain_classifier_one_epoch(
+        train_result = train_domain_one_epoch(
             model=model,
             loader=train_loader,
             criterion=criterion,
@@ -69,42 +71,57 @@ def fit_domain_classifier(
             device=device,
         )
 
-        val_result = evaluate_domain_classifier(
-            model=model,
-            loader=val_loader,
-            criterion=criterion,
-            device=device,
-            num_domains=num_domains,
-        )
-
         history["train_loss"].append(train_result["loss"])
         history["train_domain_acc"].append(train_result["accuracy"])
-        history["val_loss"].append(val_result["loss"])
-        history["val_domain_acc"].append(val_result["domain_acc"])
 
-        by_class_text = " ".join([
-            f"Domain{d}Acc={val_result['domain_acc_by_class'][d]:.4f}"
-            for d in range(num_domains)
-            if val_result["domain_acc_by_class"][d] is not None
-        ])
+        if select_loader is not None:
+            select_result = evaluate_domain_classifier(
+                model=model,
+                loader=select_loader,
+                criterion=criterion,
+                device=device,
+                num_domains=num_domains,
+            )
 
-        pred_ratio_text = " ".join([
-            f"PredDomain{d}={val_result['pred_ratio'][d]:.4f}"
-            for d in range(num_domains)
-        ])
+            history["select_loss"].append(select_result["loss"])
+            history["select_domain_acc"].append(select_result["domain_acc"])
+            history["select_macro_domain_acc"].append(select_result["macro_domain_acc"])
 
-        print(
-            f"Epoch [{epoch}/{epochs}] "
-            f"TrainLoss={train_result['loss']:.4f} "
-            f"TrainAcc={train_result['accuracy']:.4f} "
-            f"ValLoss={val_result['loss']:.4f} "
-            f"ValAcc={val_result['domain_acc']:.4f} "
-            f"{by_class_text} "
-            f"{pred_ratio_text}"
-        )
+            by_class_text = " ".join([
+                f"{domains[d]}Acc={select_result['domain_acc_by_class'][d]:.4f}"
+                for d in range(num_domains)
+                if select_result["domain_acc_by_class"][d] is not None
+            ])
 
-        if val_result["domain_acc"] > best_val_acc:
-            best_val_acc = val_result["domain_acc"]
-            best_state_dict = copy.deepcopy(model.state_dict())
+            pred_ratio_text = " ".join([
+                f"Pred{domains[d]}={select_result['pred_ratio'][d]:.4f}"
+                for d in range(num_domains)
+            ])
 
-    return history, best_state_dict, best_val_acc
+            print(
+                f"Epoch [{epoch}/{epochs}] "
+                f"TrainLoss={train_result['loss']:.4f} "
+                f"TrainAcc={train_result['accuracy']:.4f} "
+                f"{select_name}Loss={select_result['loss']:.4f} "
+                f"{select_name}Acc={select_result['domain_acc']:.4f} "
+                f"{select_name}MacroAcc={select_result['macro_domain_acc']:.4f} "
+                f"{by_class_text} "
+                f"{pred_ratio_text}"
+            )
+
+            if select_result["domain_acc"] > best_select_acc:
+                best_select_acc = select_result["domain_acc"]
+                best_state_dict = copy.deepcopy(model.state_dict())
+
+        else:
+            print(
+                f"Epoch [{epoch}/{epochs}] "
+                f"TrainLoss={train_result['loss']:.4f} "
+                f"TrainAcc={train_result['accuracy']:.4f}"
+            )
+
+    if best_state_dict is None:
+        best_state_dict = copy.deepcopy(model.state_dict())
+        best_select_acc = None
+
+    return history, best_state_dict, best_select_acc

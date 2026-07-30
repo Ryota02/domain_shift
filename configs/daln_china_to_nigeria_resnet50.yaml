@@ -1,0 +1,50 @@
+workdir: /media/share/Member/ueki/datasets
+
+method: daln
+
+task: binary
+
+sources:
+  - name: china
+    path: ZhangLabData_binary_dataset
+
+target:
+  name: nigeria
+  path: nigerian_pneumonia_binary_dataset
+
+classes:
+  - NORMAL
+  - PNEUMONIA
+
+positive_class: PNEUMONIA
+
+model:
+  backbone: resnet50
+  num_classes: 2
+  pretrained: true
+  freeze_features: false
+
+  use_bottleneck: true
+  bottleneck_dim: 1024
+  dropout: 0.5
+
+train:
+  epochs: 30
+  batch_size: 32
+  img_size: 224
+  feature_lr: 0.0001
+  classifier_lr: 0.001
+  momentum: 0.9
+  weight_decay: 0.001
+  num_workers: 0
+  lambda_nwd: 1.0
+  use_lr_annealing: true
+  seed: 42
+
+grl:
+  alpha: 1.0
+  lo: 0.0
+  hi: 1.0
+  max_iters: 1000
+
+output_dir: outputs/daln/china_to_nigeria_resnet50

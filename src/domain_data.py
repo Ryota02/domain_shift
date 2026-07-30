@@ -1,65 +1,69 @@
 from pathlib import Path
 
-import torch
-from torch.utils.data import Dataset, DataLoader, random_split
-from torchvision import datasets, transforms
+from PIL import Image
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 
 
-class DomainImageFolder(Dataset):
-    """
-    ImageFolderにdomain labelを付けるDataset。
-    疾患ラベルは読み込むが，domain分類の学習では使わない。
-    """
+IMAGE_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"
+}
 
-    def __init__(self, root, transform, domain_label):
-        self.dataset = datasets.ImageFolder(
-            root=str(root),
-            transform=transform,
-        )
-        self.domain_label = domain_label
+
+class DomainFolderDataset(Dataset):
+    def __init__(self, root, domains, transform=None):
+        self.root = Path(root)
+        self.domains = domains
+        self.transform = transform
+
+        self.domain_to_idx = {
+            name: idx for idx, name in enumerate(domains)
+        }
+
+        self.samples = []
+
+        for domain_name in domains:
+            domain_dir = self.root / domain_name
+
+            if not domain_dir.exists():
+                raise FileNotFoundError(f"Domain directory not found: {domain_dir}")
+
+            domain_label = self.domain_to_idx[domain_name]
+
+            image_paths = sorted([
+                path for path in domain_dir.rglob("*")
+                if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+            ])
+
+            if len(image_paths) == 0:
+                raise ValueError(f"No images found in {domain_dir}")
+
+            for image_path in image_paths:
+                self.samples.append((image_path, domain_label))
+
+            print(
+                f"[INFO] {domain_name}: "
+                f"label={domain_label}, "
+                f"num_images={len(image_paths)}, "
+                f"path={domain_dir}"
+            )
+
+        print(f"[INFO] total images in {self.root}: {len(self.samples)}")
 
     def __len__(self):
-        return len(self.dataset)
+        return len(self.samples)
 
     def __getitem__(self, idx):
-        image, disease_label = self.dataset[idx]
-        return image, self.domain_label, disease_label
+        image_path, domain_label = self.samples[idx]
 
+        image = Image.open(image_path).convert("RGB")
 
-class MultiDomainImageDataset(Dataset):
-    """
-    複数domainのDatasetを1つにまとめる。
-    """
+        if self.transform is not None:
+            image = self.transform(image)
 
-    def __init__(self, domain_datasets):
-        self.domain_datasets = domain_datasets
-        self.index_map = []
+        disease_label = -1
 
-        for domain_dataset_idx, dataset in enumerate(domain_datasets):
-            for sample_idx in range(len(dataset)):
-                self.index_map.append((domain_dataset_idx, sample_idx))
-
-    def __len__(self):
-        return len(self.index_map)
-
-    def __getitem__(self, idx):
-        domain_dataset_idx, sample_idx = self.index_map[idx]
-        return self.domain_datasets[domain_dataset_idx][sample_idx]
-
-
-def get_domain_path(workdir, domain_name, split):
-    workdir = Path(workdir)
-
-    if domain_name == "china":
-        return workdir / "ZhangLabData_binary_dataset" / split
-
-    if domain_name == "doha":
-        return workdir / "COVID-19_Radiography_binary_dataset_clean" / split
-
-    if domain_name == "nigeria":
-        return workdir / "nigerian_pneumonia_binary_dataset" / split
-
-    raise ValueError(f"Unknown domain: {domain_name}")
+        return image, domain_label, disease_label
 
 
 def build_domain_transform(img_size):
@@ -74,46 +78,29 @@ def build_domain_transform(img_size):
 
 
 def build_domain_loader(
-    workdir,
-    domains,
+    data_root,
     split,
+    domains,
     img_size,
     batch_size,
     num_workers,
     shuffle,
 ):
+    split_root = Path(data_root) / split
+
+    if not split_root.exists():
+        raise FileNotFoundError(f"Split directory not found: {split_root}")
+
     transform = build_domain_transform(img_size)
 
-    domain_datasets = []
-
-    for domain_label, domain_name in enumerate(domains):
-        root = get_domain_path(
-            workdir=workdir,
-            domain_name=domain_name,
-            split=split,
-        )
-
-        print(
-            f"[INFO] domain={domain_name}, "
-            f"label={domain_label}, "
-            f"split={split}, "
-            f"path={root}"
-        )
-
-        dataset = DomainImageFolder(
-            root=root,
-            transform=transform,
-            domain_label=domain_label,
-        )
-
-        print(f"[INFO] num images: {len(dataset)}")
-
-        domain_datasets.append(dataset)
-
-    merged_dataset = MultiDomainImageDataset(domain_datasets)
+    dataset = DomainFolderDataset(
+        root=split_root,
+        domains=domains,
+        transform=transform,
+    )
 
     loader = DataLoader(
-        merged_dataset,
+        dataset,
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
@@ -121,102 +108,3 @@ def build_domain_loader(
     )
 
     return loader
-
-
-def build_train_val_test_loaders(
-    workdir,
-    domains,
-    img_size,
-    batch_size,
-    num_workers,
-    val_ratio,
-    split_train="train",
-    split_test="test",
-    seed=42,
-):
-    """
-    各domainのtrainフォルダをtrain/valに分割し，
-    testフォルダを最終評価に使う。
-    """
-
-    transform = build_domain_transform(img_size)
-
-    train_domain_datasets = []
-    val_domain_datasets = []
-
-    generator = torch.Generator().manual_seed(seed)
-
-    for domain_label, domain_name in enumerate(domains):
-        root = get_domain_path(
-            workdir=workdir,
-            domain_name=domain_name,
-            split=split_train,
-        )
-
-        print(
-            f"[INFO] domain={domain_name}, "
-            f"label={domain_label}, "
-            f"split={split_train}, "
-            f"path={root}"
-        )
-
-        full_dataset = DomainImageFolder(
-            root=root,
-            transform=transform,
-            domain_label=domain_label,
-        )
-
-        n_total = len(full_dataset)
-        n_val = int(n_total * val_ratio)
-        n_train = n_total - n_val
-
-        if n_train <= 0 or n_val <= 0:
-            raise ValueError(
-                f"Invalid train/val split for {domain_name}: "
-                f"total={n_total}, train={n_train}, val={n_val}"
-            )
-
-        train_subset, val_subset = random_split(
-            full_dataset,
-            [n_train, n_val],
-            generator=generator,
-        )
-
-        print(
-            f"[INFO] {domain_name}: "
-            f"total={n_total}, train={n_train}, val={n_val}"
-        )
-
-        train_domain_datasets.append(train_subset)
-        val_domain_datasets.append(val_subset)
-
-    train_dataset = MultiDomainImageDataset(train_domain_datasets)
-    val_dataset = MultiDomainImageDataset(val_domain_datasets)
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=True,
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
-    )
-
-    test_loader = build_domain_loader(
-        workdir=workdir,
-        domains=domains,
-        split=split_test,
-        img_size=img_size,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=False,
-    )
-
-    return train_loader, val_loader, test_loader
