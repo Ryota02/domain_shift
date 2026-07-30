@@ -291,8 +291,6 @@ domain_shift/
 │   └── yoshiken_domain_data.py
 │
 ├── outputs/
-├── docs/
-│   └── experiment_log.md
 ├── README.md
 └── requirements.txt
 ```
