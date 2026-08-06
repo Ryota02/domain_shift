@@ -886,20 +886,151 @@ Existing MLP-based ADA checkpoints are not directly compatible with CNN-type dom
 If model architecture changes, old checkpoints may not load with `strict=True`.
 
 ---
+# ChestXray8 One-vs-Rest Classification
 
-## Recommended Experiment Order
+This project performs one-vs-rest binary classification using a 12-class ChestXray8 image dataset.
 
-1. Run source-only baseline.
-2. Run ADA / DANN-style training.
-3. Run DALN training.
-4. Evaluate Domain Discriminator behavior.
-5. Run pairwise domain probes.
-6. Run synthetic domain shift experiment.
-7. Train CNN domain classifier.
-8. Visualize CNN domain features with t-SNE.
-9. Run Yoshiken domain classification.
-10. Compare whether domain information remains before and after adaptation.
+For example, when Pneumonia is selected as the target class, the labels are converted as follows:
 
+Pneumonia              -> 1
+All other 11 classes   -> 0
+
+When Nodule is selected:
+
+Nodule                 -> 1
+All other 11 classes   -> 0
+
+You do not need to copy the images into new positive and negative folders. The existing 12-class ImageFolder structure is used directly, and the labels are converted to binary labels inside the dataset class.
+
+## Expected Dataset Structure
+
+This implementation assumes that each image belongs to exactly one class folder.
+
+ChestXray8/
+├── source/
+│   ├── train/
+│   │   ├── Atelectasis/
+│   │   ├── Cardiomegaly/
+│   │   ├── Consolidation/
+│   │   ├── Edema/
+│   │   ├── Effusion/
+│   │   ├── Emphysema/
+│   │   ├── Fibrosis/
+│   │   ├── Infiltration/
+│   │   ├── Mass/
+│   │   ├── Nodule/
+│   │   ├── Pneumonia/
+│   │   └── Pneumothorax/
+│   │
+│   └── val/                  # Optional
+│       └── ...
+│
+└── target/
+    └── test/
+        ├── Atelectasis/
+        ├── Cardiomegaly/
+        ├── Consolidation/
+        ├── Edema/
+        ├── Effusion/
+        ├── Emphysema/
+        ├── Fibrosis/
+        ├── Infiltration/
+        ├── Mass/
+        ├── Nodule/
+        ├── Pneumonia/
+        └── Pneumothorax/
+
+---
+## What This Code Does
+
+The overall workflow is:
+
+12-class ImageFolder
+        |
+Select one target class
+        |
+Target class       -> 1
+Other 11 classes   -> 0
+        |
+Train a CNN or ViT binary classifier
+        |
+Select the best model and threshold on validation data
+        |
+Evaluate on target/test
+
+The code performs the following steps:
+
+Loads the 12-class dataset with torchvision.datasets.ImageFolder.
+
+Converts the selected target class to label 1.
+
+Converts all other classes to label 0.
+
+Trains the model using source/train.
+
+Selects the best model using validation performance.
+
+Selects the classification threshold using validation data.
+
+Evaluates the final model on target/test.
+
+Saves checkpoints, metrics, ROC curves, PR curves, training curves, and confusion matrices.
+
+---
+## Data Usage
+
+When source/val is not specified, source/train is split into training and validation subsets using stratified sampling.
+
+85% of source/train   -> Training
+15% of source/train   -> Validation
+100% of target/test   -> Final test
+
+Example:
+
+dataset:
+  train: source/train
+  test: target/test
+  val_ratio: 0.15
+
+When a separate validation folder exists, specify it directly:
+
+dataset:
+  train: source/train
+  val: source/val
+  test: target/test
+
+Then the data usage becomes:
+
+source/train   -> Training
+source/val     -> Validation
+target/test    -> Final test
+
+source/test and target/train are not used unless the code is explicitly modified to include them.
+
+---
+## Project Structure
+
+domain_shift/
+├── configs/
+│   ├── one_vs_rest_pneumonia_densenet201.yaml
+│   └── one_vs_rest_pneumonia_vit_b16.yaml
+│
+├── scripts/
+│   └── train_one_vs_rest.py
+│
+└── src/
+    ├── data.py
+    ├── plots.py
+    ├── utils.py
+    ├── one_vs_rest_data.py
+    ├── one_vs_rest_model.py
+    └── one_vs_rest_train.py
+
+---
+## How to use
+```bash
+python scripts/train_one_vs_rest.py --config configs/one_vs_rest_{model name}.yaml --target_class {target class}
+```
 ---
 
 ## Author
