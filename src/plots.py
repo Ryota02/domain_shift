@@ -2,7 +2,13 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.metrics import (
+    auc,
+    average_precision_score,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_curve,
+)
 from sklearn.preprocessing import label_binarize
 import seaborn as sns
 
@@ -691,3 +697,4 @@ def plot_multiclass_roc_curve(
     return {
         "auc_per_class": auc_values,
     }
+
