@@ -1,0 +1,22 @@
+dataset:
+
+  Pneumoconiosis:
+
+    
+    train_images: /media/share/Member/ueki/datasets/yoshiken_data/nonmask/train/1
+    train_masks: /media/share/Member/ueki/datasets/yoshiken_data/segment/train
+
+    test_images: /media/share/Member/ueki/datasets/yoshiken_data/nonmask/val/1
+    test_masks: /media/share/Member/ueki/datasets/yoshiken_data/segment/test
+
+
+  Pneumonia:
+
+    train_images: /media/share/Member/ueki/datasets/pneumonia_cxr8/nonmask/train
+    train_masks: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/train/mask
+
+    test_images: /media/share/Member/ueki/datasets/pneumonia_cxr8/nonmask/test
+    test_masks: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/test/mask
+
+
+output_dir: outputs/lung_statistics

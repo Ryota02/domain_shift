@@ -1,0 +1,58 @@
+workdir: /media/share/Member/ueki/datasets
+task:
+  type: binary_disease
+
+dataset:
+  pneumoconiosis:
+    train: /media/share/Member/ueki/datasets/yoshiken_data/mask/train/1
+    test: /media/share/Member/ueki/datasets/yoshiken_data/mask/val/1
+
+  pneumonia:
+    train: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/train/lung_only
+    test: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/test/lung_only
+
+  # Pneumoconiosisの枚数に合わせる
+  train_samples_per_class: 70
+  test_samples_per_class: 21
+
+  # train 70枚のうち20%をValidationにする
+  val_ratio: 0.20
+
+transform:
+  resize_size: 256
+  random_crop: true
+  horizontal_flip: 0.5
+
+model:
+  backbone: resnet50
+  pretrained: true
+  dropout: 0.0
+
+train:
+  img_size: 224
+  batch_size: 16
+
+  # Docker shm対策
+  num_workers: 0
+
+  epochs: 30
+
+  optimizer: adamw
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+
+  lr_factor: 0.1
+  lr_patience: 3
+
+  seed: 42
+  require_cuda: true
+
+loss:
+  use_pos_weight: false
+
+evaluation:
+  selection_metric: pr_auc
+  threshold_method: max_f1
+  fixed_threshold: 0.5
+
+output_dir: outputs/binary_disease/pneumoconiosis_vs_pneumonia/resnet50
