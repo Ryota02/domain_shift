@@ -1,0 +1,62 @@
+workdir: /media/share/Member/ueki/datasets
+
+training_config: configs/binary/pneumoconiosis_vs_pneumonia_densenet201.yaml
+
+output_dir: outputs/xai/densenet201
+
+data:
+  split: test
+  # Dataset index
+  indices: # all # when you want to show all images
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+  # predicted
+  # true
+  # pneumonia
+  # pneumoconiosis
+  target: predicted
+
+methods:
+  gradcam:
+    enabled: true
+
+  gradcam_plus_plus:
+    enabled: true
+
+  # It's for ViT
+  rollout:
+    enabled: false
+    # mean / max / min
+    head_fusion: mean
+    # 最初は0を推奨
+    discard_ratio: 0.0
+    # 0 = 全Transformer layerを使用
+    start_layer: 0
+
+  lime:
+    enabled: true
+    # LIME perturbation数
+    num_samples: 1000
+    # 表示するsuperpixel数
+    num_features: 10
+    
+  shap:
+    enabled: true
+    # Validation画像からbackgroundとして使用
+    background_samples: 8
+    
+prediction:
+  # trueならcheckpointに保存されたthresholdを優先
+  use_checkpoint_threshold: true
+  # checkpointにthresholdがなければ使用
+  fallback_threshold: 0.5
+
+save:
+  combined_figure: true
+  # heatmapそのものも.npyで保存
+  numpy_arrays: true
+  results_csv: true
+  dpi: 200

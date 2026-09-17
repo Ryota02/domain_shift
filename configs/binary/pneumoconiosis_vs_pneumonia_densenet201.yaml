@@ -7,9 +7,15 @@ dataset:
     train: /media/share/Member/ueki/datasets/yoshiken_data/nonmask/train/1
     test: /media/share/Member/ueki/datasets/yoshiken_data/nonmask/val/1
 
+    train_masks: /media/share/Member/ueki/datasets/yoshiken_data/segment/train
+    test_masks: /media/share/Member/ueki/datasets/yoshiken_data/segment/test
+
   pneumonia:
-    train: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/train/lung_only
-    test: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/test/lung_only
+    train: /media/share/Member/ueki/datasets/pneumonia_cxr8/nonmask/train
+    test: /media/share/Member/ueki/datasets/pneumonia_cxr8/nonmask/test
+
+    train_masks: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/train/mask
+    test_masks: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/test/mask
 
   # Pneumoconiosisの枚数に合わせる
   train_samples_per_class: 70
@@ -17,10 +23,24 @@ dataset:
 
   # train 70枚のうち20%をValidationにする
   val_ratio: 0.20
+  
+preprocessing:
+  # original
+  # lung_only
+  # moment_standardized
+  mode: moment_standardized
+
+  mask_threshold: 128
+  clip_z: 3.0
+  eps: 1.0e-8
+
+  # 3モードで同じ画像を使うため，
+  # originalでもmaskが存在する画像だけを候補にする
+  require_mask_for_comparison: true
 
 transform:
   resize_size: 256
-  random_crop: true
+  random_crop: false
   horizontal_flip: 0.5
 
 model:
@@ -51,7 +71,7 @@ loss:
   use_pos_weight: false
 
 evaluation:
-  selection_metric: pr_auc
+  selection_metric: roc_auc
   threshold_method: max_f1
   fixed_threshold: 0.5
 

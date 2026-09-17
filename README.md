@@ -977,6 +977,37 @@ Evaluates the final model on target/test.
 Saves checkpoints, metrics, ROC curves, PR curves, training curves, and confusion matrices.
 
 ---
+## Explainable AI (XAI) Visualization
+
+This project provides an explainable AI (XAI) pipeline for analyzing the decision-making behavior of binary chest X-ray classification models.
+
+The visualization pipeline currently supports:
+
+- Grad-CAM
+- Grad-CAM++
+- LIME
+- SHAP
+- Attention Rollout for Vision Transformers (ViT)
+
+These methods can be used to investigate whether the model relies on clinically relevant lung regions or dataset-specific artifacts such as image borders, acquisition characteristics, or global intensity differences.
+
+
+### XAI Module Structure
+
+The XAI implementation is separated into multiple modules:
+
+```text
+src/xai/
+├── __init__.py
+├── cam.py
+├── attention_rollout.py
+├── lime_explainer.py
+├── shap_explainer.py
+├── model_utils.py
+├── image_utils.py
+└── plotting.py
+
+---
 ## Data Usage
 
 When source/val is not specified, source/train is split into training and validation subsets using stratified sampling.

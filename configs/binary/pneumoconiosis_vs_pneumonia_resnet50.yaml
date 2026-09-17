@@ -1,0 +1,78 @@
+workdir: /media/share/Member/ueki/datasets
+task:
+  type: binary_disease
+
+dataset:
+  pneumoconiosis:
+    train: /media/share/Member/ueki/datasets/yoshiken_data/nonmask/train/1
+    test: /media/share/Member/ueki/datasets/yoshiken_data/nonmask/val/1
+
+    train_masks: /media/share/Member/ueki/datasets/yoshiken_data/segment/train
+    test_masks: /media/share/Member/ueki/datasets/yoshiken_data/segment/test
+
+  pneumonia:
+    train: /media/share/Member/ueki/datasets/pneumonia_cxr8/nonmask/train
+    test: /media/share/Member/ueki/datasets/pneumonia_cxr8/nonmask/test
+
+    train_masks: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/train/mask
+    test_masks: /media/share/Member/ueki/datasets/pneumonia_cxr8/pspnet/test/mask
+
+  # Pneumoconiosisの枚数に合わせる
+  train_samples_per_class: 70
+  test_samples_per_class: 21
+
+  # train 70枚のうち20%をValidationにする
+  val_ratio: 0.20
+
+preprocessing:
+  # original
+  # lung_only
+  # moment_standardized
+  mode: moment_standardized
+
+  mask_threshold: 128
+  clip_z: 3.0
+  eps: 1.0e-8
+
+  # 3モードで同じ画像を使うため，
+  # originalでもmaskが存在する画像だけを候補にする
+  require_mask_for_comparison: true
+
+transform:
+  resize_size: 256
+  random_crop: false
+  horizontal_flip: 0.5
+
+model:
+  backbone: resnet50
+  pretrained: true
+  dropout: 0.0
+
+train:
+  img_size: 224
+  batch_size: 16
+
+  # Docker shm対策
+  num_workers: 0
+
+  epochs: 30
+
+  optimizer: adamw
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+
+  lr_factor: 0.1
+  lr_patience: 3
+
+  seed: 42
+  require_cuda: true
+
+loss:
+  use_pos_weight: false
+
+evaluation:
+  selection_metric: roc_auc
+  threshold_method: max_f1
+  fixed_threshold: 0.5
+
+output_dir: outputs/binary_disease/pneumoconiosis_vs_pneumonia/resnet50

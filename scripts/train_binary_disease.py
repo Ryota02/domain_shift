@@ -58,148 +58,283 @@ def main():
         "seed",
         42,
     )
-
-    set_seed(seed)
-
-    device = get_device(
-        require_cuda=cfg[
-            "train"
-        ].get(
-            "require_cuda",
-            True,
-        )
-    )
-
-    output_dir = Path(
-        cfg["output_dir"]
-    )
-
-    checkpoint_dir = (
-        output_dir
-        / "checkpoints"
-    )
-
-    result_dir = (
-        output_dir
-        / "results"
-    )
-
-    figure_dir = (
-        output_dir
-        / "figures"
-    )
-
-    for directory in [
-        checkpoint_dir,
-        result_dir,
-        figure_dir,
-    ]:
-        directory.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-    # -------------------------
-    # Dataset
-    # -------------------------
-
-    datasets_dict = (
-        build_binary_disease_datasets(
-            cfg
-        )
-    )
-
-    loaders = (
-        build_binary_disease_loaders(
-            cfg,
-            datasets_dict,
-        )
-    )
-
-    # -------------------------
-    # Model
-    # -------------------------
-
-    model = (
-        build_one_vs_rest_model(
-            cfg
-        ).to(device)
-    )
-
-    # -------------------------
-    # Class imbalance
-    # -------------------------
-
-    if cfg.get(
-        "loss",
-        {},
-    ).get(
-        "use_pos_weight",
-        True,
-    ):
-        pos_weight = (
-            calculate_pos_weight(
-                datasets_dict
+    all_result = []
+    for seed in range(seed, seed+5): 
+        print(f"\nSeed: {seed} / {seed+5}")
+        set_seed(seed)
+    
+        device = get_device(
+            require_cuda=cfg[
+                "train"
+            ].get(
+                "require_cuda",
+                True,
             )
         )
-    else:
-        pos_weight = 1.0
-
-    print(
-        "[INFO] Device:",
-        device,
-    )
-
-    print(
-        "[INFO] Model:",
-        cfg["model"]["backbone"],
-    )
-
-    print(
-        "[INFO] Classes:",
-        datasets_dict[
-            "class_names"
-        ],
-    )
-
-    print(
-        "[INFO] pos_weight:",
-        pos_weight,
-    )
-
-    # -------------------------
-    # Training
-    # -------------------------
-
-    start_time = time.time()
-
-    result = fit_one_vs_rest(
-        model=model,
-        loaders=loaders,
-        cfg=cfg,
-        device=device,
-        pos_weight=pos_weight,
-    )
-
-    elapsed_time = (
-        time.time()
-        - start_time
-    )
-
-    # -------------------------
-    # Checkpoint
-    # -------------------------
-
-    best_checkpoint = (
-        checkpoint_dir
-        / "best_model.pth"
-    )
-
-    torch.save(
-        {
-            "model_state_dict": (
-                result[
-                    "best_state_dict"
+        preprocessing_cfg =  cfg.get("preprocessing", {})
+        preprocessing_mode = preprocessing_cfg.get("mode", {})
+        valid_modes = {
+            "original",
+            "lung_only",
+            "moment_standardized",
+        }
+        
+        if preprocessing_mode not in valid_modes:
+            raise ValueError(
+                "Unknown preprocessing mode: "
+                f"{preprocessing_mode}"
+            )
+        seed_name = "seed" + str(seed)
+        output_dir = Path(cfg["output_dir"]) / preprocessing_mode / seed_name 
+    
+        checkpoint_dir = (
+            output_dir
+            / "checkpoints"
+        )
+    
+        result_dir = (
+            output_dir
+            / "results"
+        )
+    
+        figure_dir = (
+            output_dir
+            / "figures"
+        )
+    
+        for directory in [
+            checkpoint_dir,
+            result_dir,
+            figure_dir,
+        ]:
+            directory.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+    
+        # -------------------------
+        # Dataset
+        # -------------------------
+    
+        datasets_dict = (
+            build_binary_disease_datasets(
+                cfg, 
+                seed
+            )
+        )
+    
+        loaders = (
+            build_binary_disease_loaders(
+                datasets_dict,
+                cfg,
+            )
+        )
+    
+        # -------------------------
+        # Model
+        # -------------------------
+    
+        model = (
+            build_one_vs_rest_model(
+                cfg
+            ).to(device)
+        )
+    
+        # -------------------------
+        # Class imbalance
+        # -------------------------
+    
+        if cfg.get(
+            "loss",
+            {},
+        ).get(
+            "use_pos_weight",
+            True,
+        ):
+            pos_weight = (
+                calculate_pos_weight(
+                    datasets_dict
+                )
+            )
+        else:
+            pos_weight = 1.0
+    
+        print(
+            "[INFO] Device:",
+            device,
+        )
+    
+        print(
+            "[INFO] Model:",
+            cfg["model"]["backbone"],
+        )
+    
+        print(
+            "[INFO] Classes:",
+            datasets_dict[
+                "class_names"
+            ],
+        )
+    
+        print(
+            "[INFO] pos_weight:",
+            pos_weight,
+        )
+    
+        # -------------------------
+        # Training
+        # -------------------------
+    
+        start_time = time.time()
+    
+        result = fit_one_vs_rest(
+            model=model,
+            loaders=loaders,
+            cfg=cfg,
+            device=device,
+            pos_weight=pos_weight,
+        )
+    
+        elapsed_time = (
+            time.time()
+            - start_time
+        )
+    
+        # -------------------------
+        # Checkpoint
+        # -------------------------
+    
+        best_checkpoint = (
+            checkpoint_dir
+            / "best_model.pth"
+        )
+    
+        torch.save(
+            {
+                "model_state_dict": (
+                    result[
+                        "best_state_dict"
+                    ]
+                ),
+                "best_epoch": (
+                    result[
+                        "best_epoch"
+                    ]
+                ),
+                "best_score": (
+                    result[
+                        "best_score"
+                    ]
+                ),
+                "threshold": (
+                    result[
+                        "threshold"
+                    ]
+                ),
+                "class_names": (
+                    datasets_dict[
+                        "class_names"
+                    ]
+                ),
+                "class_to_idx": (
+                    datasets_dict[
+                        "class_to_idx"
+                    ]
+                ),
+                "backbone": (
+                    cfg[
+                        "model"
+                    ][
+                        "backbone"
+                    ]
+                ),
+                "config": (
+                    make_json_serializable(
+                        cfg
+                    )
+                ),
+            },
+            best_checkpoint,
+        )
+    
+        # -------------------------
+        # Test results
+        # -------------------------
+    
+        test_result = (
+            result["test_result"]
+        )
+    
+        test_metrics = (
+            test_result["metrics"]
+        )
+    
+        y_true = (
+            test_result["y_true"]
+        )
+    
+        y_probability = (
+            test_result[
+                "y_probability"
+            ]
+        )
+    
+        threshold = (
+            result["threshold"]
+        )
+    
+        y_pred = (
+            np.asarray(
+                y_probability
+            )
+            >= threshold
+        ).astype(
+            np.int64
+        )
+    
+        # -------------------------
+        # Plots
+        # -------------------------
+    
+        plot_training_history(
+            result["history"],
+            output_dir=figure_dir,
+        )
+    
+        plot_roc_and_pr(
+            y_true,
+            y_probability,
+            figure_dir,
+        )
+    
+        plot_confusion(
+            y_true,
+            y_probability,
+            threshold,
+            datasets_dict["class_names"],
+            figure_dir / "confusion_matrix.png",
+        )
+    
+        # -------------------------
+        # JSON
+        # -------------------------
+    
+        result_log = {
+            "classes": (
+                datasets_dict[
+                    "class_names"
+                ]
+            ),
+            "class_to_idx": (
+                datasets_dict[
+                    "class_to_idx"
+                ]
+            ),
+            "model": (
+                cfg[
+                    "model"
+                ][
+                    "backbone"
                 ]
             ),
             "best_epoch": (
@@ -212,175 +347,110 @@ def main():
                     "best_score"
                 ]
             ),
-            "threshold": (
+            "threshold": threshold,
+            "pos_weight": (
+                pos_weight
+            ),
+            "validation_metrics": (
                 result[
-                    "threshold"
-                ]
-            ),
-            "class_names": (
-                datasets_dict[
-                    "class_names"
-                ]
-            ),
-            "class_to_idx": (
-                datasets_dict[
-                    "class_to_idx"
-                ]
-            ),
-            "backbone": (
-                cfg[
-                    "model"
+                    "validation_result"
                 ][
-                    "backbone"
+                    "metrics"
                 ]
             ),
-            "config": (
+            "test_metrics": (
+                test_metrics
+            ),
+            "training_time_seconds": (
+                elapsed_time
+            ),
+        }
+    
+        with (
+            result_dir
+            / "metrics.json"
+        ).open(
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(
                 make_json_serializable(
-                    cfg
-                )
-            ),
-        },
-        best_checkpoint,
-    )
+                    result_log
+                ),
+                file,
+                indent=2,
+            )
+        all_result.append({
+            "seed": seed,
+            **test_metrics,
+        })
 
-    # -------------------------
-    # Test results
-    # -------------------------
-
-    test_result = (
-        result["test_result"]
-    )
-
-    test_metrics = (
-        test_result["metrics"]
-    )
-
-    y_true = (
-        test_result["y_true"]
-    )
-
-    y_probability = (
-        test_result[
-            "y_probability"
-        ]
-    )
-
-    threshold = (
-        result["threshold"]
-    )
-
-    y_pred = (
-        np.asarray(
-            y_probability
-        )
-        >= threshold
-    ).astype(
-        np.int64
-    )
-
-    # -------------------------
-    # Plots
-    # -------------------------
-
-    plot_training_history(
-        result["history"],
-        output_dir=figure_dir,
-    )
-
-    plot_roc_and_pr(
-        y_true,
-        y_probability,
-        figure_dir,
-    )
-
-    plot_confusion(
-        y_true,
-        y_probability,
-        threshold,
-        datasets_dict["class_names"],
-        figure_dir / "confusion_matrix.png",
-    )
-
-    # -------------------------
-    # JSON
-    # -------------------------
-
-    result_log = {
-        "classes": (
-            datasets_dict[
-                "class_names"
-            ]
-        ),
-        "class_to_idx": (
-            datasets_dict[
-                "class_to_idx"
-            ]
-        ),
-        "model": (
-            cfg[
-                "model"
-            ][
-                "backbone"
-            ]
-        ),
-        "best_epoch": (
-            result[
-                "best_epoch"
-            ]
-        ),
-        "best_score": (
-            result[
-                "best_score"
-            ]
-        ),
-        "threshold": threshold,
-        "pos_weight": (
-            pos_weight
-        ),
-        "validation_metrics": (
-            result[
-                "validation_result"
-            ][
-                "metrics"
-            ]
-        ),
-        "test_metrics": (
-            test_metrics
-        ),
-        "training_time_seconds": (
-            elapsed_time
-        ),
-    }
-
-    with (
-        result_dir
-        / "metrics.json"
-    ).open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            make_json_serializable(
-                result_log
-            ),
-            file,
-            indent=2,
-        )
-
-    print("\n[RESULT]")
-
-    for key, value in (
-        test_metrics.items()
-    ):
+    print("\n\n========================================")
+    print("All Seed Results")
+    print("========================================")
+    
+    for result in all_result:
         print(
-            f"{key}: {value}"
+            f"\nSeed = "
+            f"{result['seed']}"
         )
-
-    print(
-        "[INFO] Checkpoint:",
-        best_checkpoint,
-    )
-
+    
+        print(
+            f"Accuracy          : "
+            f"{result['accuracy']:.4f}"
+        )
+    
+        # print(
+        #     f"Balanced Accuracy : "
+        #     f"{result['balanced_accuracy']:.4f}"
+        # )
+    
+        # print(
+        #     f"Sensitivity       : "
+        #     f"{result['sensitivity']:.4f}"
+        # )
+    
+        # print(
+        #     f"Specificity       : "
+        #     f"{result['specificity']:.4f}"
+        # )
+    
+        # print(
+        #     f"Precision         : "
+        #     f"{result['precision']:.4f}"
+        # )
+    
+        # print(
+        #     f"NPV               : "
+        #     f"{result['npv']:.4f}"
+        # )
+    
+        print(
+            f"F1                : "
+            f"{result['f1']:.4f}"
+        )
+    
+        print(
+            f"ROC-AUC           : "
+            f"{result['roc_auc']:.4f}"
+        )
+    
+        # print(
+        #     f"PR-AUC            : "
+        #     f"{result['pr_auc']:.4f}"
+        # )
+    
+        # print(
+        #     f"Threshold         : "
+        #     f"{result['threshold']:.4f}"
+        # )
+    
+        print(
+            "Confusion Matrix  :",
+            result[
+                "confusion_matrix"
+            ],
+        )
 
 if __name__ == "__main__":
     main()
